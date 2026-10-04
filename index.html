@@ -56,6 +56,7 @@ label{display:block;font-size:14px;color:var(--mute);margin:2px 0 4px}
 .pe{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:12px;margin:10px 0}
 .pe img{width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:8px}
 .pe .h{display:flex;justify-content:space-between;gap:8px}
+.lv2{background:var(--tape)!important;color:var(--tapeink);border-color:var(--tape)!important}.lv3{background:#c0392b!important;color:#fff;border-color:#c0392b!important}.sk .chip{min-height:36px;padding:0 12px;font-size:14px}
 .fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));height:54px;padding:0 22px;border-radius:99px;background:var(--tape);color:var(--tapeink);font-weight:800;font-size:17px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;height:58px;font-size:12px;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
@@ -81,7 +82,9 @@ nav .on{color:var(--ac);font-weight:700}
 <button class="fab" id="fab" data-a="fab"></button>
 <nav>
 <button data-a="go" data-n="home"><b>🛠</b>В работе</button>
-<button data-a="go" data-n="all"><b>📦</b>Все модели</button>
+<button data-a="go" data-n="all"><b>📦</b>Модели</button>
+<button data-a="go" data-n="stock"><b>🎨</b>Краски</button>
+<button data-a="go" data-n="shop"><b>🛒</b>Покупки</button>
 <button data-a="go" data-n="bk"><b>💾</b>Копия</button>
 </nav>
 <div id="sheet" hidden></div>
@@ -97,7 +100,10 @@ const fmt=d=>new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'short'
 const ST=['В запасе','В работе','Покраска','Финиш','Готово','Заморожено'];
 const STAGES=['Мойка и зачистка деталей','Сборка кузова','Подгонка и шпатлёвка','Грунт','Базовый цвет','Лак','Полировка','Салон','Шасси и подвеска','Колёса и шины','Декали','Мелкие детали','Финальная сборка'];
 const METHODS=['Аэрограф','Кисть','Баллон','Другое'];
-let S={models:[],lastBackup:0},view={n:'home'},tmp=null,wl=null,wakeOn=false;
+const TYPES=['Акрил','Эмаль','Нитро','Лак','Грунт','Разбавитель','Клей','Шпатлёвка','Другое'];
+const LV=['Полная','Половина','Почти пусто','Закончилась'];
+const dn=x=>[x.brand,x.code,x.name].filter(Boolean).join(' ');
+let S={models:[],stock:[],shop:[],lastBackup:0},view={n:'home'},tmp=null,wl=null,wakeOn=false;
 
 /* ---------- хранилище (IndexedDB) ---------- */
 const idb=new Promise((res,rej)=>{const r=indexedDB.open('masterskaya',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -117,6 +123,9 @@ async function wake(on){try{if(on){wl=await navigator.wakeLock.request('screen')
 document.addEventListener('visibilitychange',()=>{if(wakeOn&&document.visibilityState==='visible')navigator.wakeLock?.request('screen').then(l=>wl=l).catch(()=>{})});
 
 /* ---------- отрисовка ---------- */
+const sItem=x=>`<div class="st sk"><div class="ci" data-a="editSk" data-i="${x.id}" style="padding:8px 0"><b>${esc(x.name||x.code)}</b><small>${esc([x.brand,x.name?x.code:'',x.type].filter(Boolean).join(', '))}</small></div><button class="chip lv${x.level}" data-a="lv" data-i="${x.id}">${LV[x.level]}</button><button class="x" data-a="toBuy" data-i="${x.id}" aria-label="В покупки">🛒</button></div>`;
+const stockList=()=>{const f=view.f??'a',q=(view.q||'').toLowerCase(),l=S.stock.filter(x=>(f==='a'||x.type===f)&&(!q||dn(x).toLowerCase().includes(q)));return l.map(sItem).join('')||'<div class="empty">Ничего не найдено. Добавьте краску кнопкой «+ Краска».</div>'};
+const shItem=x=>{const mn=S.models.find(m=>m.id===x.mid)?.name;return `<div class="st ${x.d?'d':''}"><button class="cb" data-a="togSh" data-i="${x.id}">${x.d?'✓':''}</button><span data-a="togSh" data-i="${x.id}">${esc(x.t)}${mn?`<br><small>для ${esc(mn)}</small>`:''}</span><button class="x" data-a="delSh" data-i="${x.id}" aria-label="Удалить">×</button></div>`};
 const card=m=>`<div class="card" data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div class="ph">🏎</div>'}<div class="ci"><b>${esc(m.name)}</b><small>${esc([m.brand,m.kit].filter(Boolean).join(', '))}</small><span class="tag">${ST[m.status]}</span>${bar(prog(m))}</div></div>`;
 function render(){
   const v=view;let h='',fab='';
@@ -134,9 +143,17 @@ function render(){
   }else if(v.n==='all'){
     fab='+ Модель';const f=v.f??'a',l=S.models.filter(m=>f==='a'||m.status===+f);
     h=`<h1>Все модели</h1><small>${S.models.length} в коллекции</small><div class="chips"><button class="chip ${f==='a'?'on':''}" data-a="flt" data-s="a">Все</button>${ST.map((s,i)=>`<button class="chip ${f==i?'on':''}" data-a="flt" data-s="${i}">${s}</button>`).join('')}</div>`+(l.map(card).join('')||'<div class="empty">Здесь пусто.</div>');
+  }else if(v.n==='stock'){
+    fab='+ Краска';const f=v.f??'a';
+    h=`<h1>Краски и материалы</h1><small>${S.stock.length} позиций, на исходе: ${S.stock.filter(x=>x.level>=2).length}</small>
+    <input id="q" type="search" placeholder="Поиск по названию или номеру" value="${esc(v.q)}" style="margin:12px 0 0">
+    <div class="chips"><button class="chip ${f==='a'?'on':''}" data-a="flt" data-s="a">Все</button>${TYPES.map(t=>`<button class="chip ${f===t?'on':''}" data-a="flt" data-s="${t}">${t}</button>`).join('')}</div><div id="sl">${stockList()}</div>`;
+  }else if(v.n==='shop'){
+    fab='+ Покупка';const o=S.shop.filter(x=>!x.d),dn2=S.shop.filter(x=>x.d);
+    h=`<h1>Покупки</h1><small>Нужно купить: ${o.length}</small>`+(o.concat(dn2).map(shItem).join('')||'<div class="empty">Список пуст. Добавляйте сюда нужное или нажимайте 🛒 у краски на складе.</div>')+(dn2.length?`<button class="big" data-a="clrShop">Убрать купленное (${dn2.length})</button>`:'');
   }else if(v.n==='bk'){
     const d=S.lastBackup?fmt(S.lastBackup):'ещё не делалась';
-    h=`<h1>Резервная копия</h1><small>Моделей: ${S.models.length}. Последняя копия: ${d}.</small>
+    h=`<h1>Резервная копия</h1><small>Моделей: ${S.models.length}, позиций на складе: ${S.stock.length}. Последняя копия: ${d}.</small>
     <div class="note">Все записи хранятся только в этом телефоне. Сохраняйте копию в «Файлы» (iCloud Drive) или отправляйте себе в мессенджер.</div>
     <button class="big p" data-a="exp">Сохранить копию</button><button class="big" data-a="imp">Восстановить из файла</button>`;
   }else{
@@ -164,13 +181,30 @@ function modelSheet(m){
 function paintSheet(m){
   tmp=null;
   sheet('Запись о покраске',`<label>Деталь</label><input id="p1" placeholder="Кузов, салон, диски…">
-  <label>Краска (марка и номер)</label><input id="p2" list="dl_p" placeholder="Например, Tamiya TS-26"><datalist id="dl_p">${uniq(S.models.flatMap(x=>x.paints.map(p=>p.paint))).map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+  <label>Краска (марка и номер)</label><input id="p2" list="dl_p" placeholder="Например, Tamiya TS-26"><datalist id="dl_p">${uniq([...S.stock.map(dn),...S.models.flatMap(x=>x.paints.map(p=>p.paint))]).map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
   <label>Как наносили</label><select id="p3">${METHODS.map(x=>`<option>${x}</option>`).join('')}</select>
   <div class="two"><div><label>Слоёв</label><input id="p4" type="number" inputmode="numeric" min="1" value="2"></div><div><label>Разбавитель</label><input id="p5" placeholder="например, 60/40"></div></div>
   <label>Заметка</label><textarea id="p6" rows="3"></textarea><button class="big" data-a="pickTmp">📷 Добавить фото</button><img id="pv" hidden style="width:100%;border-radius:8px;margin-bottom:8px" alt="">`,
   ()=>{if(!val('p1')&&!val('p2')){toast('Укажите деталь или краску');return false}
     m.paints.unshift({id:uid(),date:Date.now(),part:val('p1')||'Без названия',paint:val('p2'),method:val('p3'),layers:val('p4'),thinner:val('p5'),note:val('p6'),photo:tmp||''});
     return commit()});
+}
+
+function skSheet(x){
+  const e=!!x;
+  sheet(e?'Позиция склада':'Новая краска или материал',`<label>Название или цвет</label><input id="k1" value="${esc(x?.name)}" placeholder="Например, Чёрный матовый">
+  <label>Производитель</label><input id="k2" list="dl_k" value="${esc(x?.brand)}"><datalist id="dl_k">${uniq(S.stock.map(y=>y.brand)).map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+  <div class="two"><div><label>Номер</label><input id="k3" value="${esc(x?.code)}" placeholder="XF-1"></div><div><label>Тип</label><select id="k4">${TYPES.map(t=>`<option ${t===(x?.type||'Акрил')?'selected':''}>${t}</option>`).join('')}</select></div></div>
+  <label>Остаток</label><select id="k5">${LV.map((l,i)=>`<option value="${i}" ${i===(x?.level||0)?'selected':''}>${l}</option>`).join('')}</select>${e?`<button class="del" data-a="delSk" data-i="${x.id}">Удалить позицию</button>`:''}`,
+  ()=>{if(!val('k1')&&!val('k3')){toast('Укажите название или номер');return false}
+    const d={name:val('k1'),brand:val('k2'),code:val('k3'),type:val('k4'),level:+val('k5')};
+    if(e)Object.assign(x,d);else S.stock.unshift({id:uid(),...d});
+    return commit()});
+}
+function shopSheet(){
+  sheet('Что купить',`<label>Название</label><input id="b1" placeholder="Например, Tamiya TS-14 чёрный">
+  <label>Для какой модели</label><select id="b2"><option value="">Без привязки</option>${S.models.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>`,
+  ()=>{if(!val('b1')){toast('Введите, что купить');return false}S.shop.push({id:uid(),t:val('b1'),mid:val('b2'),d:0});return commit()});
 }
 
 /* ---------- действия ---------- */
@@ -182,10 +216,17 @@ const act={
   flt:d=>{view.f=d.s;render()},
   close:()=>{$('#sheet').hidden=true;$('#lb').hidden=true},
   fab:()=>{const m=cur(),t=view.tab;
-    if(view.n!=='model')return modelSheet();
+    if(view.n==='stock')return skSheet();if(view.n==='shop')return shopSheet();if(view.n!=='model')return modelSheet();
     if(t==='st')sheet('Новый этап','<label>Название</label><input id="s1" placeholder="Например, Тонировка стёкол">',()=>{if(!val('s1'))return false;m.stages.push({t:val('s1'),d:0});return commit()});
     if(t==='pt')paintSheet(m);
     if(t==='ph')act.addPhoto()},
+  lv:d=>{const x=S.stock.find(y=>y.id===d.i);x.level=(x.level+1)%4;commit()},
+  toBuy:d=>{const x=S.stock.find(y=>y.id===d.i);if(S.shop.some(s=>s.sk===x.id&&!s.d))return toast('Уже в списке покупок');S.shop.push({id:uid(),t:dn(x),sk:x.id,d:0});save();toast('Добавлено в покупки')},
+  editSk:d=>skSheet(S.stock.find(y=>y.id===d.i)),
+  delSk:d=>{if(confirm('Удалить позицию со склада?')){S.stock=S.stock.filter(y=>y.id!==d.i);act.close();commit()}},
+  togSh:d=>{const s=S.shop.find(y=>y.id===d.i);s.d=s.d?0:1;if(s.d&&s.sk){const x=S.stock.find(y=>y.id===s.sk);if(x)x.level=0}commit()},
+  delSh:d=>{S.shop=S.shop.filter(y=>y.id!==d.i);commit()},
+  clrShop:()=>{if(confirm('Убрать купленное из списка?')){S.shop=S.shop.filter(s=>!s.d);commit()}},
   edit:()=>modelSheet(cur()),
   wake:()=>wake(!wakeOn),
   tog:d=>{const s=cur().stages[+d.i];s.d=s.d?0:1;commit()},
@@ -202,14 +243,17 @@ const act={
     try{if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}
       S.lastBackup=Date.now();await commit();toast('Копия сохранена')}catch(e){if(e.name!=='AbortError')toast('Не удалось сохранить копию')}},
   imp:()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const d=JSON.parse(await i.files[0].text());if(!Array.isArray(d.models))throw 0;
-    if(!confirm('Заменить текущие данные ('+S.models.length+' моделей) данными из файла ('+d.models.length+' моделей)?'))return;S=d;S.lastBackup??=0;view={n:'home'};await commit();toast('Данные восстановлены')}catch(e){toast('Это не файл копии «Мастерской»')}};i.click()}
+    if(!confirm('Заменить текущие данные ('+S.models.length+' моделей) данными из файла ('+d.models.length+' моделей)?'))return;S=d;S.lastBackup??=0;S.stock??=[];S.shop??=[];view={n:'home'};await commit();toast('Данные восстановлены')}catch(e){toast('Это не файл копии «Мастерской»')}};i.click()}
 };
 document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(a)act[a.dataset.a]?.(a.dataset)});
 document.addEventListener('change',e=>{if(e.target.dataset.c==='status'){cur().status=+e.target.value;commit()}});
 
+document.addEventListener('input',e=>{if(e.target.id==='q'){view.q=e.target.value;$('#sl').innerHTML=stockList()}});
+
 /* ---------- запуск ---------- */
 (async()=>{
   try{S=(await kv('get','state'))||S}catch(e){}
+  S.stock??=[];S.shop??=[];
   navigator.storage?.persist?.();
   render();
   if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
