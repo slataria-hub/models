@@ -58,6 +58,7 @@ label{display:block;font-size:14px;color:var(--mute);margin:2px 0 4px}
 .pe .h{display:flex;justify-content:space-between;gap:8px}
 .lv2{background:var(--tape)!important;color:var(--tapeink);border-color:var(--tape)!important}.lv3{background:#c0392b!important;color:#fff;border-color:#c0392b!important}.sk .chip{min-height:36px;padding:0 12px;font-size:14px}
 .tabs{overflow-x:auto;scrollbar-width:none}.tabs button{flex:1 0 auto;font-size:15px;padding:0 12px}
+#sheet{z-index:6}
 .mrow{display:grid;grid-template-columns:40px 1fr 78px;gap:8px;align-items:center;margin:6px 0}.mrow .bar{margin:0}.mrow b{text-align:right;font-size:14px}
 .fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));height:54px;padding:0 22px;border-radius:99px;background:var(--tape);color:var(--tapeink);font-weight:800;font-size:17px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
@@ -111,6 +112,15 @@ const hm=s=>{const m=Math.round(s/60);return m<60?m+' мин':Math.floor(m/60)+'
 const logs=m=>[...(m.sec?[{id:'base',s:m.sec,date:0}]:[]),...(m.log||[])];
 const tot=m=>logs(m).reduce((a,x)=>a+x.s,0)+(S.timer?.mid===m.id?(Date.now()-S.timer.t0)/1000:0);
 const costOf=m=>(m.price||0)+(m.exp||[]).reduce((a,x)=>a+x.a,0);
+const askP=(msg,label='Удалить')=>new Promise(res=>{const e=$('#sheet');e.innerHTML=`<div class="sh"><h2 style="font-size:18px">${esc(msg)}</h2><div class="btns"><button id="an">Отмена</button><button class="p" id="ay">${label}</button></div></div>`;e.hidden=false;$('#an').onclick=()=>{e.hidden=true;res(false)};$('#ay').onclick=()=>{e.hidden=true;res(true)}});
+const ask=(msg,fn,label)=>askP(msg,label).then(y=>y&&fn());
+const askIn=(title,label,v='',mode='text')=>new Promise(res=>{const e=$('#sheet');e.innerHTML=`<div class="sh"><h2>${title}</h2><label>${label}</label><input id="ai" ${mode==='dec'?'type="text" inputmode="decimal"':''} value="${esc(v)}"><div class="btns"><button id="an">Отмена</button><button class="p" id="ay">Готово</button></div></div>`;e.hidden=false;setTimeout(()=>$('#ai').focus(),60);$('#an').onclick=()=>{e.hidden=true;res(null)};$('#ay').onclick=()=>{e.hidden=true;res($('#ai').value.trim())}});
+const offerBuy=x=>{if(S.shop.some(s=>s.sk===x.id&&!s.d))return;ask('«'+dn(x)+'» закончилась. Добавить в покупки?',()=>{S.shop.push({id:uid(),t:dn(x),sk:x.id,d:0});save();toast('Добавлено в покупки')},'Добавить')};
+const searchList=()=>{const q=(view.q||'').trim().toLowerCase();if(q.length<2)return '<div class="empty">Введите хотя бы 2 буквы. Ищем по заметкам, дневнику покраски и подписям к фото.</div>';
+  const r=[];S.models.forEach(m=>{(m.notes||[]).forEach(x=>{if(x.t.toLowerCase().includes(q))r.push(['Заметка',m,'in',x.t,x.date])});
+    m.paints.forEach(p=>{const t=[p.part,p.paint,p.method,p.thinner,p.note].filter(Boolean).join(', ');if(t.toLowerCase().includes(q))r.push(['Покраска',m,'pt',t,p.date])});
+    m.photos.forEach(p=>{if((p.cap||'').toLowerCase().includes(q))r.push(['Фото',m,'ph',p.cap,p.date])})});
+  return r.sort((a,b)=>b[4]-a[4]).map(([k,m,t,x,d])=>`<div class="pe" data-a="open" data-id="${m.id}" data-t="${t}"><div class="h"><b>${esc(m.name)}</b><small>${k}, ${fmt(d)}</small></div><div>${esc(x.length>160?x.slice(0,160)+'…':x)}</div></div>`).join('')||'<div class="empty">Ничего не найдено.</div>'};
 const SORT={n:()=>0,a:(x,y)=>x.name.localeCompare(y.name,'ru'),p:(x,y)=>prog(y)-prog(x),t:(x,y)=>tot(y)-tot(x),c:(x,y)=>costOf(y)-costOf(x)};
 const SORTL={n:'Сначала новые',a:'По названию',p:'По готовности',t:'По времени работы',c:'По стоимости'};
 function monthly(){const out=[],now=new Date(),key=ts=>{const d=new Date(ts);return d.getFullYear()*12+d.getMonth()};
@@ -119,8 +129,8 @@ function monthly(){const out=[],now=new Date(),key=ts=>{const d=new Date(ts);ret
   S.models.forEach(m=>{(m.log||[]).forEach(x=>{const o=at(x.date);if(o)o.h+=x.s});(m.exp||[]).forEach(x=>{const o=at(x.date);if(o)o.m+=x.a});if(m.price){const o=at(m.created);if(o)o.m+=m.price}});return out}
 const mchart=(a,k,f)=>{const mx=Math.max(...a.map(o=>o[k]),1);return a.map(o=>`<div class="mrow"><small>${o.l}</small><div class="bar"><i style="width:${o[k]/mx*100}%"></i></div><b>${o[k]?f(o[k]):'—'}</b></div>`).join('')};
 const setSt=(m,st)=>{m.status=st;if(st===4&&!m.done)m.done=Date.now()};
-function stopT(){if(!S.timer)return;const m=S.models.find(x=>x.id===S.timer.mid);let e=Math.round((Date.now()-S.timer.t0)/1000);if(e>43200&&!confirm('Таймер шёл '+hm(e)+'. Записать всё это время?'))e=0;if(m&&e>0)(m.log??=[]).push({id:uid(),s:e,date:Date.now()});S.timer=null}
-const seg=k=>`<div class="tabs" style="margin-top:14px">${[['c','Коллекция'],['tr','Полка'],['ss','Итоги']].map(([a,b])=>`<button data-a="sub" data-k="${a}" class="${k===a?'on':''}">${b}</button>`).join('')}</div>`;
+async function stopT(){if(!S.timer)return;const m=S.models.find(x=>x.id===S.timer.mid);let e=Math.round((Date.now()-S.timer.t0)/1000);if(e>43200&&!await askP('Таймер шёл '+hm(e)+'. Записать всё это время?','Записать'))e=0;if(m&&e>0)(m.log??=[]).push({id:uid(),s:e,date:Date.now()});S.timer=null}
+const seg=k=>`<div class="tabs" style="margin-top:14px">${[['c','Коллекция'],['tr','Полка'],['ss','Итоги'],['q','Поиск']].map(([a,b])=>`<button data-a="sub" data-k="${a}" class="${k===a?'on':''}">${b}</button>`).join('')}</div>`;
 const trophy=m=>`<div data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div style="aspect-ratio:1;border-radius:10px;background:var(--card);border:1px solid var(--ln);display:grid;place-items:center;font-size:40px">🏆</div>'}<b style="display:block;margin-top:6px">${esc(m.name)}</b><small>${fmt(m.done||m.created)}${tot(m)>60?', '+hm(tot(m)):''}</small></div>`;
 const tbanner=()=>{const m=S.models.find(x=>x.id===S.timer.mid);return m?`<div class="note" data-a="open" data-id="${m.id}"><b>⏱ Идёт работа</b><br><small>${esc(m.name)}, <span data-tm="${m.id}">${hm(tot(m))}</span></small></div>`:''};
 let S={models:[],stock:[],shop:[],lastBackup:0},view={n:'home'},tmp=null,wl=null,wakeOn=false;
@@ -146,27 +156,36 @@ document.addEventListener('visibilitychange',()=>{if(wakeOn&&document.visibility
 const sItem=x=>`<div class="st sk"><div class="ci" data-a="editSk" data-i="${x.id}" style="padding:8px 0"><b>${esc(x.name||x.code)}</b><small>${esc([x.brand,x.name?x.code:'',x.type].filter(Boolean).join(', '))}</small></div><button class="chip lv${x.level}" data-a="lv" data-i="${x.id}">${LV[x.level]}</button><button class="x" data-a="toBuy" data-i="${x.id}" aria-label="В покупки">🛒</button></div>`;
 const stockList=()=>{const f=view.f??'a',q=(view.q||'').toLowerCase(),l=S.stock.filter(x=>(f==='a'||x.type===f)&&(!q||dn(x).toLowerCase().includes(q)));return l.map(sItem).join('')||'<div class="empty">Ничего не найдено. Добавьте краску кнопкой «+ Краска».</div>'};
 const shItem=x=>{const mn=S.models.find(m=>m.id===x.mid)?.name;return `<div class="st ${x.d?'d':''}"><button class="cb" data-a="togSh" data-i="${x.id}">${x.d?'✓':''}</button><span data-a="togSh" data-i="${x.id}">${esc(x.t)}${mn?`<br><small>для ${esc(mn)}</small>`:''}</span><button class="x" data-a="delSh" data-i="${x.id}" aria-label="Удалить">×</button></div>`};
-const card=m=>`<div class="card" data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div class="ph">🏎</div>'}<div class="ci"><b>${esc(m.name)}</b><small>${esc([m.brand,m.kit].filter(Boolean).join(', '))}</small><span class="tag">${ST[m.status]}</span>${bar(prog(m))}</div></div>`;
+const card=m=>`<div class="card" data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div class="ph">🏎</div>'}<div class="ci"><b>${esc(m.name)}</b><small>${esc([m.brand,m.kit].filter(Boolean).join(', '))}</small><span class="tag">${ST[m.status]}</span>${bar(prog(m))}${tot(m)>60||costOf(m)?`<small>${[tot(m)>60?'⏱ '+hm(tot(m)):'',costOf(m)?mo(costOf(m)):''].filter(Boolean).join(', ')}</small>`:''}</div></div>`;
 function render(){
   const v=view;let h='',fab='';
   if(v.n==='model'){
     const m=cur();if(!m){view={n:'home'};return render()}
-    const t=v.tab||'st',tb=(k,l)=>`<button data-a="tab" data-t="${k}" class="${t===k?'on':''}">${l}</button>`;
+    const t=v.tab||'ov',tb=(k,l)=>`<button data-a="tab" data-t="${k}" class="${t===k?'on':''}">${l}</button>`;
     h=`<div class="top"><button class="ib" data-a="back" aria-label="Назад">‹</button><h1>${esc(m.name)}</h1><button class="ib" data-a="edit" aria-label="Изменить">✎</button></div>
     <div class="hero">${m.cover?`<img src="${m.cover}" alt="">`:'🏎'}</div>
     <div class="row"><select data-c="status">${ST.map((s,i)=>`<option value="${i}" ${i===m.status?'selected':''}>${s}</option>`).join('')}</select><button class="chip ${wakeOn?'on':''}" data-a="wake">☀ Экран</button></div>
     <small>Готово ${prog(m)}%</small>${bar(prog(m))}
     <div class="row"><b style="flex:1">⏱ <span data-tm="${m.id}">${hm(tot(m))}</span></b><button class="chip ${S.timer?.mid===m.id?'on':''}" data-a="timer">${S.timer?.mid===m.id?'Стоп':'Старт'}</button><button class="chip" data-a="addTime">+ время</button><button class="chip" data-a="logs" aria-label="Журнал времени">☰</button></div>
-    <div class="tabs">${tb('st','Этапы')}${tb('pt','Покраска')}${tb('ph','Фото')}${tb('ex','Расходы')}${tb('in','Инфо')}</div>`;
+    <div class="tabs">${tb('ov','Обзор')}${tb('st','Этапы')}${tb('pt','Покраска')}${tb('ph','Фото')}${tb('ex','Расходы')}${tb('in','Инфо')}</div>`;
+    if(t==='ov'){const ps=m.parts||[],nt=m.notes||[],nx=m.stages.find(s=>!s.d),buy=S.shop.filter(x=>!x.d&&x.mid===m.id),pu=uniq(m.paints.map(p=>p.paint)),
+      R=(a,b)=>`<div class="st" style="min-height:46px"><span>${a}</span><b>${b}</b></div>`,H3=t=>`<h2 style="margin:18px 0 2px;font-size:17px">${t}</h2>`;
+      h+=R('Время работы',hm(tot(m)))+R('Стоимость',mo(costOf(m)))+R('Цвет настоящей машины',esc(m.real)||'не указан')+R('Допы установлены',ps.length?ps.filter(x=>x.d).length+' из '+ps.length:'нет')+(nx?R('Следующий этап',esc(nx.t)):R('Все этапы пройдены','✓'))+
+      H3('Краски из дневника')+(pu.length?pu.map(n=>{const k=S.stock.find(y=>dn(y)===n);return R(esc(n),k?`<span class="tag lv${k.level}">${LV[k.level]}</span>`:'')}).join(''):'<small>Появятся, когда вы начнёте записывать покраску.</small>')+
+      (buy.length?H3('Нужно купить')+buy.map(x=>R(esc(x.t),'')).join(''):'')+
+      (m.photos.length?H3('Фото')+`<div class="grid">${m.photos.slice(0,4).map(p=>`<img src="${p.img}" alt="" data-a="zoom" data-k="f" data-i="${p.id}">`).join('')}</div>`:'')+
+      (nt.length?H3('Последние заметки')+nt.slice(0,2).map(x=>`<div class="pe"><small>${fmt(x.date)}</small><div style="white-space:pre-wrap">${esc(x.t)}</div></div>`).join(''):'')}
     if(t==='st'){fab='+ Этап';h+=m.stages.map((s,i)=>`<div class="st ${s.d?'d':''}"><button class="cb" data-a="tog" data-i="${i}">${s.d?'✓':''}</button><span data-a="tog" data-i="${i}">${esc(s.t)}</span><button class="x" data-a="delSt" data-i="${i}" aria-label="Удалить">×</button></div>`).join('')||'<div class="empty">Этапов нет. Добавьте первый.</div>'}
     if(t==='pt'){fab='+ Запись';h+=m.paints.map(p=>`<div class="pe"><div class="h"><b>${esc(p.part)}</b><small>${fmt(p.date)}</small></div><div>${esc(p.paint)}</div><small>${[p.method,p.layers?p.layers+' сл.':'',p.thinner?'разб. '+p.thinner:''].filter(Boolean).join(', ')}</small>${p.note?`<div style="margin-top:6px">${esc(p.note)}</div>`:''}${p.photo?`<img src="${p.photo}" alt="" data-a="zoom" data-k="p" data-i="${p.id}">`:''}<button class="del" data-a="delPt" data-i="${p.id}">Удалить запись</button></div>`).join('')||'<div class="empty">Записывайте краску, слои и разбавитель, чтобы повторить цвет в следующий раз.</div>'}
     if(t==='ph'){fab='+ Фото';h+=m.photos.length?`<div class="grid">${m.photos.map(p=>`<img src="${p.img}" alt="" data-a="zoom" data-k="f" data-i="${p.id}">`).join('')}</div>`:'<div class="empty">Фотографий пока нет. Снимайте модель на каждом этапе.</div>'}
     if(t==='ex'){fab='+ Расход';const ex=m.exp||[],sum=(m.price||0)+ex.reduce((a,x)=>a+x.a,0);
-      h+=`<div class="note"><b>Всего: ${mo(sum)}</b><br><small>Набор: ${mo(m.price||0)}. Остальное: ${mo(sum-(m.price||0))}.</small></div>`+ex.map(x=>`<div class="st"><span>${esc(x.t)}<br><small>${fmt(x.date)}</small></span><b>${mo(x.a)}</b><button class="x" data-a="delEx" data-i="${x.id}" aria-label="Удалить">×</button></div>`).join('')+(ex.length?'':'<div class="empty">Записывайте допы: фототравление, смолу, краски, инструменты. Цена набора указывается через «✎».</div>')}
+      h+=`<div class="note"><b>Всего: ${mo(sum)}</b><br><small>Набор: ${mo(m.price||0)}. Остальное: ${mo(sum-(m.price||0))}.</small></div>`+ex.map(x=>`<div class="st"><span data-a="editEx" data-i="${x.id}">${esc(x.t)}<br><small>${fmt(x.date)}</small></span><b>${mo(x.a)}</b><button class="x" data-a="delEx" data-i="${x.id}" aria-label="Удалить">×</button></div>`).join('')+(ex.length?'':'<div class="empty">Записывайте допы: фототравление, смолу, краски, инструменты. Цена набора указывается через «✎».</div>')}
     if(t==='in'){const ps=m.parts||[],nt=m.notes||[],H2=t=>`<h2 style="margin:18px 0 2px;font-size:17px">${t}</h2>`;
       h+=`<div class="note" data-a="edit"><small>Цвет настоящей машины</small><br><b>${esc(m.real)||'Не указан'}</b></div>`+H2('Допы')+
-      ps.map(x=>`<div class="st ${x.d?'d':''}"><button class="cb" data-a="togPt" data-i="${x.id}">${x.d?'✓':''}</button><span data-a="togPt" data-i="${x.id}">${esc(x.t)}</span><button class="x" data-a="delPart" data-i="${x.id}" aria-label="Удалить">×</button></div>`).join('')+`<button class="big" data-a="addPart">+ Доп</button>`+H2('Заметки')+
-      nt.map(x=>`<div class="pe"><div class="h"><small>${fmt(x.date)}</small><button class="x" style="height:28px" data-a="delNote" data-i="${x.id}" aria-label="Удалить">×</button></div><div style="white-space:pre-wrap">${esc(x.t)}</div></div>`).join('')+`<button class="big" data-a="addNote">+ Заметка</button>`}
+      ps.map(x=>`<div class="st ${x.d?'d':''}"><button class="cb" data-a="togPt" data-i="${x.id}">${x.d?'✓':''}</button><span data-a="editPart" data-i="${x.id}">${esc(x.t)}</span><button class="x" data-a="delPart" data-i="${x.id}" aria-label="Удалить">×</button></div>`).join('')+`<button class="big" data-a="addPart">+ Доп</button>`+H2('Заметки')+
+      nt.map(x=>`<div class="pe"><div class="h"><small>${fmt(x.date)}</small><button class="x" style="height:28px" data-a="delNote" data-i="${x.id}" aria-label="Удалить">×</button></div><div style="white-space:pre-wrap" data-a="editNote" data-i="${x.id}">${esc(x.t)}</div></div>`).join('')+`<button class="big" data-a="addNote">+ Заметка</button>`}
+  }else if(v.n==='all'&&v.sub==='q'){
+    h=seg('q')+`<h1>Поиск</h1><input id="q" type="search" placeholder="Слово, цвет или номер краски" value="${esc(v.q)}" style="margin:12px 0"><div id="sl">${searchList()}</div>`;
   }else if(v.n==='all'&&v.sub==='tr'){
     const l=S.models.filter(m=>m.status===4).sort((a,b)=>(b.done||b.created)-(a.done||a.created));
     h=seg('tr')+`<h1>Полка трофеев</h1><small>Готовых моделей: ${l.length}</small>`+(l.length?`<div class="grid">${l.map(trophy).join('')}</div>`:'<div class="empty">Здесь появятся модели со статусом «Готово».</div>');
@@ -240,9 +259,16 @@ function logSheet(m){
   $('#sheet').innerHTML=`<div class="sh"><h2>Журнал времени</h2>${l.length?l.slice().reverse().map(x=>`<div class="st"><span>${x.date?fmt(x.date):'Раньше'}<br><small>${hm(x.s)}</small></span><button class="x" data-a="editLg" data-i="${x.id}" aria-label="Изменить">✎</button><button class="x" data-a="delLg" data-i="${x.id}" aria-label="Удалить">×</button></div>`).join(''):'<div class="empty">Записей пока нет.</div>'}<div class="btns"><button class="p" data-a="close">Готово</button></div></div>`;
   $('#sheet').hidden=false;
 }
-function expSheet(m){
-  sheet('Новый расход',`<label>На что</label><input id="e1" placeholder="Например, фототравление"><label>Сумма</label><input id="e2" type="text" inputmode="decimal" placeholder="0">`,
-  ()=>{const a=num('e2');if(!val('e1')||!a){toast('Укажите, на что и сколько');return false};(m.exp??=[]).push({id:uid(),t:val('e1'),a,date:Date.now()});return commit()});
+function expSheet(m,x){
+  sheet(x?'Расход':'Новый расход',`<label>На что</label><input id="e1" value="${esc(x?.t)}" placeholder="Например, фототравление"><label>Сумма</label><input id="e2" type="text" inputmode="decimal" value="${x?x.a:''}" placeholder="0">`,
+  ()=>{const a=num('e2');if(!val('e1')||!a){toast('Укажите, на что и сколько');return false}
+    if(x){x.t=val('e1');x.a=a}else(m.exp??=[]).push({id:uid(),t:val('e1'),a,date:Date.now()});return commit()});
+}
+function partSheet(x){
+  sheet(x?'Доп':'Новый доп','<label>Что добавить в модель</label><input id="d1" value="'+esc(x?.t)+'" placeholder="Фототравление, смоляные диски, провода">',()=>{if(!val('d1'))return false;if(x)x.t=val('d1');else(cur().parts??=[]).push({id:uid(),t:val('d1'),d:0});return commit()});
+}
+function noteSheet(x){
+  sheet(x?'Заметка':'Новая заметка','<textarea id="n1" rows="6" placeholder="Что важно запомнить">'+esc(x?.t)+'</textarea>',()=>{if(!val('n1'))return false;if(x)x.t=val('n1');else(cur().notes??=[]).unshift({id:uid(),t:val('n1'),date:Date.now()});return commit()});
 }
 function skSheet(x){
   const e=!!x;
@@ -264,7 +290,7 @@ function shopSheet(){
 /* ---------- действия ---------- */
 const act={
   go:d=>{view={n:d.n};render();scrollTo(0,0)},
-  open:d=>{view={n:'model',id:d.id,tab:'st',back:view.n};render();scrollTo(0,0)},
+  open:d=>{view={n:'model',id:d.id,tab:d.t||'ov',back:view.n};render();scrollTo(0,0)},
   back:()=>act.go({n:view.back||'home'}),
   tab:d=>{view.tab=d.t;render()},
   flt:d=>{view.f=d.s;render()},
@@ -274,51 +300,54 @@ const act={
     if(t==='st')sheet('Новый этап','<label>Название</label><input id="s1" placeholder="Например, Тонировка стёкол">',()=>{if(!val('s1'))return false;m.stages.push({t:val('s1'),d:0});return commit()});
     if(t==='pt')paintSheet(m);
     if(t==='ph')act.addPhoto();if(t==='ex')expSheet(m)},
-  lv:d=>{const x=S.stock.find(y=>y.id===d.i);x.level=(x.level+1)%4;commit()},
+  lv:d=>{const x=S.stock.find(y=>y.id===d.i);x.level=(x.level+1)%4;commit();if(x.level===3)offerBuy(x)},
   toBuy:d=>{const x=S.stock.find(y=>y.id===d.i);if(S.shop.some(s=>s.sk===x.id&&!s.d))return toast('Уже в списке покупок');S.shop.push({id:uid(),t:dn(x),sk:x.id,d:0});save();toast('Добавлено в покупки')},
   editSk:d=>skSheet(S.stock.find(y=>y.id===d.i)),
-  delSk:d=>{if(confirm('Удалить позицию со склада?')){S.stock=S.stock.filter(y=>y.id!==d.i);act.close();commit()}},
-  togSh:d=>{const s=S.shop.find(y=>y.id===d.i);s.d=s.d?0:1;if(s.d&&s.sk){const x=S.stock.find(y=>y.id===s.sk);if(x)x.level=0}
-    if(s.d&&s.mid){const m=S.models.find(y=>y.id===s.mid);if(m){const a=parseFloat((prompt('Сколько заплатили за «'+s.t+'»? Пусто: не записывать в расходы')||'').replace(',','.'));if(a>0){(m.exp??=[]).push({id:uid(),t:s.t,a,date:Date.now()});toast('Записано в расходы модели')}}}
+  delSk:d=>{ask('Удалить позицию со склада?',()=>{S.stock=S.stock.filter(y=>y.id!==d.i);act.close();commit()})},
+  togSh:async d=>{const s=S.shop.find(y=>y.id===d.i);s.d=s.d?0:1;if(s.d&&s.sk){const x=S.stock.find(y=>y.id===s.sk);if(x)x.level=0}
+    if(s.d&&s.mid){const m=S.models.find(y=>y.id===s.mid);if(m){const a=parseFloat(((await askIn('Куплено: '+s.t,'Сколько заплатили? Пусто: не записывать в расходы','','dec'))||'').replace(',','.'));if(a>0){(m.exp??=[]).push({id:uid(),t:s.t,a,date:Date.now()});toast('Записано в расходы модели')}}}
     commit()},
   delSh:d=>{S.shop=S.shop.filter(y=>y.id!==d.i);commit()},
-  clrShop:()=>{if(confirm('Убрать купленное из списка?')){S.shop=S.shop.filter(s=>!s.d);commit()}},
+  clrShop:()=>{ask('Убрать купленное из списка?',()=>{S.shop=S.shop.filter(s=>!s.d);commit()},'Убрать')},
   sub:d=>{view.sub=d.k;view.f=undefined;render()},
   logs:()=>logSheet(cur()),
-  editLg:d=>{const m=cur(),x=d.i==='base'?{get s(){return m.sec},set s(v){m.sec=v}}:m.log.find(y=>y.id===d.i);
-    const t=prompt('Сколько минут?',Math.round(x.s/60));if(t===null)return;const n=Math.round(parseFloat(t.replace(',','.'))*60);if(!(n>0))return toast('Введите число минут');x.s=n;save().then(()=>{render();logSheet(m)})},
-  delLg:d=>{const m=cur();if(!confirm('Удалить запись времени?'))return;if(d.i==='base')m.sec=0;else m.log=m.log.filter(y=>y.id!==d.i);save().then(()=>{render();logSheet(m)})},
-  addPart:()=>{const m=cur();sheet('Новый доп','<label>Что добавить в модель</label><input id="d1" placeholder="Фототравление, смоляные диски, провода">',()=>{if(!val('d1'))return false;(m.parts??=[]).push({id:uid(),t:val('d1'),d:0});return commit()})},
+  editLg:async d=>{const m=cur(),x=d.i==='base'?{get s(){return m.sec},set s(v){m.sec=v}}:m.log.find(y=>y.id===d.i);
+    const t=await askIn('Время работы','Сколько минут?',Math.round(x.s/60),'dec');if(t===null)return logSheet(m);const n=Math.round(parseFloat(t.replace(',','.'))*60);if(!(n>0))return(toast('Введите число минут'),logSheet(m));x.s=n;save().then(()=>{render();logSheet(m)})},
+  delLg:async d=>{const m=cur();if(!await askP('Удалить запись времени?'))return logSheet(m);if(d.i==='base')m.sec=0;else m.log=m.log.filter(y=>y.id!==d.i);save().then(()=>{render();logSheet(m)})},
+  addPart:()=>partSheet(),
+  editPart:d=>partSheet(cur().parts.find(y=>y.id===d.i)),
+  editEx:d=>{const m=cur();expSheet(m,m.exp.find(y=>y.id===d.i))},
   togPt:d=>{const x=cur().parts.find(y=>y.id===d.i);x.d=x.d?0:1;commit()},
-  delPart:d=>{const m=cur();if(confirm('Удалить доп?')){m.parts=m.parts.filter(y=>y.id!==d.i);commit()}},
-  addNote:()=>{const m=cur();sheet('Новая заметка','<textarea id="n1" rows="5" placeholder="Что важно запомнить"></textarea>',()=>{if(!val('n1'))return false;(m.notes??=[]).unshift({id:uid(),t:val('n1'),date:Date.now()});return commit()})},
-  delNote:d=>{if(confirm('Удалить заметку?')){const m=cur();m.notes=m.notes.filter(y=>y.id!==d.i);commit()}},
-  cap:d=>{const m=cur(),p=m.photos.find(x=>x.id===d.i),t=prompt('Подпись к фото',p.cap||'');if(t!==null){p.cap=t.trim();commit();act.zoom({k:'f',i:d.i})}},
-  timer:()=>{const m=cur(),was=S.timer?.mid===m.id;stopT();if(!was)S.timer={mid:m.id,t0:Date.now()};commit()},
+  delPart:d=>{const m=cur();ask('Удалить доп?',()=>{m.parts=m.parts.filter(y=>y.id!==d.i);commit()})},
+  addNote:()=>noteSheet(),
+  editNote:d=>noteSheet(cur().notes.find(y=>y.id===d.i)),
+  delNote:d=>{ask('Удалить заметку?',()=>{const m=cur();m.notes=m.notes.filter(y=>y.id!==d.i);commit()})},
+  cap:async d=>{const m=cur(),p=m.photos.find(x=>x.id===d.i),t=await askIn('Подпись к фото','Подпись',p.cap||'');if(t!==null){p.cap=t;await commit();act.zoom({k:'f',i:d.i})}},
+  timer:async()=>{const m=cur(),was=S.timer?.mid===m.id;await stopT();if(!was)S.timer={mid:m.id,t0:Date.now()};commit()},
   addTime:()=>{const m=cur();sheet('Добавить время',`<div class="two"><div><label>Часы</label><input id="t1" type="number" inputmode="numeric" min="0" value="0"></div><div><label>Минуты</label><input id="t2" type="number" inputmode="numeric" min="0" value="0"></div></div>`,()=>{const t=(+val('t1')||0)*3600+(+val('t2')||0)*60;if(t<=0)return false;(m.log??=[]).push({id:uid(),s:t,date:Date.now()});return commit()})},
   delEx:d=>{const m=cur();m.exp=(m.exp||[]).filter(x=>x.id!==d.i);commit()},
   edit:()=>modelSheet(cur()),
   wake:()=>wake(!wakeOn),
   tog:d=>{const s=cur().stages[+d.i];s.d=s.d?0:1;commit()},
-  delSt:d=>{const m=cur();if(confirm('Удалить этап «'+m.stages[+d.i].t+'»?')){m.stages.splice(+d.i,1);commit()}},
-  delPt:d=>{if(confirm('Удалить запись?')){const m=cur();m.paints=m.paints.filter(p=>p.id!==d.i);commit()}},
-  delModel:()=>{const m=cur();if(confirm('Удалить модель «'+m.name+'» со всеми записями и фото?')){if(S.timer?.mid===m.id)S.timer=null;S.models=S.models.filter(x=>x!==m);act.close();view={n:'all'};commit()}},
+  delSt:d=>{const m=cur();ask('Удалить этап «'+m.stages[+d.i].t+'»?',()=>{m.stages.splice(+d.i,1);commit()})},
+  delPt:d=>{ask('Удалить запись?',()=>{const m=cur();m.paints=m.paints.filter(p=>p.id!==d.i);commit()})},
+  delModel:()=>{const m=cur();ask('Удалить модель «'+m.name+'» со всеми записями и фото?',()=>{if(S.timer?.mid===m.id)S.timer=null;S.models=S.models.filter(x=>x!==m);act.close();view={n:'all'};commit()})},
   pickTmp:async()=>{const r=await pick();if(r){tmp=r;const i=$('#pv');i.src=r;i.hidden=false}},
-  addPhoto:async()=>{const r=await pick();if(!r)return;const m=cur();m.photos.unshift({id:uid(),img:r,cap:(prompt('Подпись к фото (можно оставить пустой)')||'').trim(),date:Date.now()});if(!m.cover)m.cover=r;commit()},
+  addPhoto:async()=>{const r=await pick();if(!r)return;const m=cur();m.photos.unshift({id:uid(),img:r,cap:(await askIn('Подпись к фото','Можно оставить пустой'))||'',date:Date.now()});if(!m.cover)m.cover=r;commit()},
   zoom:d=>{const m=cur(),src=d.k==='p'?m.paints.find(p=>p.id===d.i)?.photo:m.photos.find(p=>p.id===d.i)?.img;if(!src)return;
     const cp=d.k==='f'?m.photos.find(p=>p.id===d.i).cap:'';$('#lb').innerHTML=`<img src="${src}" alt="">${d.k==='f'?`<div style="color:#fff;text-align:center">${esc(cp)||'Без подписи'} <button style="color:#f2c230;padding:8px" data-a="cap" data-i="${d.i}">Изменить</button></div>`:''}${d.k==='f'?`<div class="btns"><button class="p" data-a="cover" data-i="${d.i}">Сделать обложкой</button><button class="del" data-a="delPh" data-i="${d.i}">Удалить</button></div>`:''}<div class="btns"><button style="color:#fff" data-a="close">Закрыть</button></div>`;$('#lb').hidden=false},
   cover:d=>{const m=cur();m.cover=m.photos.find(p=>p.id===d.i).img;act.close();commit()},
-  delPh:d=>{if(confirm('Удалить фото?')){const m=cur();m.photos=m.photos.filter(p=>p.id!==d.i);act.close();commit()}},
+  delPh:d=>{ask('Удалить фото?',()=>{const m=cur();m.photos=m.photos.filter(p=>p.id!==d.i);act.close();commit()})},
   exp:async()=>{const f=new File([JSON.stringify(S)],'masterskaya-'+new Date().toISOString().slice(0,10)+'.json',{type:'application/json'});
     try{if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}
       S.lastBackup=Date.now();await commit();toast('Копия сохранена')}catch(e){if(e.name!=='AbortError')toast('Не удалось сохранить копию')}},
   imp:()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const d=JSON.parse(await i.files[0].text());if(!Array.isArray(d.models))throw 0;
-    if(!confirm('Заменить текущие данные ('+S.models.length+' моделей) данными из файла ('+d.models.length+' моделей)?'))return;S=d;S.lastBackup??=0;S.stock??=[];S.shop??=[];view={n:'home'};await commit();toast('Данные восстановлены')}catch(e){toast('Это не файл копии «Мастерской»')}};i.click()}
+    if(!await askP('Заменить текущие данные ('+S.models.length+' моделей) данными из файла ('+d.models.length+' моделей)?','Заменить'))return;S=d;S.lastBackup??=0;S.stock??=[];S.shop??=[];view={n:'home'};await commit();toast('Данные восстановлены')}catch(e){toast('Это не файл копии «Мастерской»')}};i.click()}
 };
 document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(a)act[a.dataset.a]?.(a.dataset)});
 document.addEventListener('change',e=>{if(e.target.dataset.c==='status'){setSt(cur(),+e.target.value);commit()}if(e.target.dataset.c==='sort'){view.sort=e.target.value;render()}if(e.target.id==='cu'){S.cur=e.target.value.trim()||'€';save()}});
 
-document.addEventListener('input',e=>{if(e.target.id==='q'){view.q=e.target.value;$('#sl').innerHTML=stockList()}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){view.q=e.target.value;$('#sl').innerHTML=(view.n==='stock'?stockList:searchList)()}});
 
 setInterval(()=>document.querySelectorAll('[data-tm]').forEach(e=>{const m=S.models.find(x=>x.id===e.dataset.tm);if(m)e.textContent=hm(tot(m))}),15000);
 
