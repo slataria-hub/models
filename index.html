@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Мастерская</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Мастерская">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef1ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1a15" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#eef1ec;--card:#fff;--ink:#16231c;--mute:#5f6e65;--ln:#d9e0d8;--ac:#1f6b4a;--on:#fff;--tape:#f2c230;--tapeink:#2a2200}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1a15;--card:#172620;--ink:#e8efe9;--mute:#8fa396;--ln:#243a30;--ac:#f2c230;--on:#2a2200}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 16px calc(92px + env(safe-area-inset-bottom))}
+h1{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:18px 0 4px;line-height:1.15}
+h2{font-size:20px;margin:0 0 14px}
+small,.mute{color:var(--mute);font-size:14px}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.top{display:flex;align-items:center;gap:8px;margin-top:10px}
+.top h1{flex:1;margin:0;font-size:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib{width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--ln);font-size:22px}
+.card{display:flex;gap:12px;background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:10px;margin:10px 0;min-height:88px}
+.card>img,.card>.ph{width:84px;height:84px;border-radius:8px;object-fit:cover;flex:none;background:var(--bg);display:grid;place-items:center;font-size:30px}
+.ci{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ci b{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{align-self:flex-start;font-size:13px;font-weight:600;padding:2px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--ln)}
+.bar{height:6px;border-radius:3px;background:var(--ln);overflow:hidden;margin:4px 0}
+.bar i{display:block;height:100%;background:var(--ac)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px;margin:0 -16px;padding-left:16px;scrollbar-width:none}
+.chip{flex:none;min-height:40px;padding:0 16px;border-radius:99px;border:1px solid var(--ln);background:var(--card);font-weight:600}
+.chip.on,.tabs .on{background:var(--ac);color:var(--on);border-color:var(--ac)}
+.tabs{display:flex;gap:6px;margin:14px 0 6px;background:var(--card);padding:4px;border-radius:12px;border:1px solid var(--ln)}
+.tabs button{flex:1;min-height:42px;border-radius:9px;font-weight:600}
+.hero{height:200px;border-radius:14px;overflow:hidden;margin-top:12px;background:var(--card);border:1px solid var(--ln);display:grid;place-items:center;font-size:54px}
+.hero img{width:100%;height:100%;object-fit:cover}
+.row{display:flex;gap:10px;align-items:center;margin:12px 0 4px}
+select,input,textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--ln);border-radius:10px;padding:12px;margin-bottom:10px}
+.row select{margin:0;flex:1;background:var(--card)}
+label{display:block;font-size:14px;color:var(--mute);margin:2px 0 4px}
+.two{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.st{display:flex;align-items:center;gap:12px;min-height:54px;background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:0 6px 0 14px;margin:8px 0}
+.st .cb{width:28px;height:28px;border-radius:8px;border:2px solid var(--mute);flex:none;display:grid;place-items:center;font-weight:800;color:var(--on)}
+.st.d .cb{background:var(--ac);border-color:var(--ac)}
+.st.d span{color:var(--mute);text-decoration:line-through}
+.st span{flex:1}
+.x{width:44px;height:44px;color:var(--mute);font-size:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--ln)}
+.pe{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:12px;margin:10px 0}
+.pe img{width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:8px}
+.pe .h{display:flex;justify-content:space-between;gap:8px}
+.fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom));height:54px;padding:0 22px;border-radius:99px;background:var(--tape);color:var(--tapeink);font-weight:800;font-size:17px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;height:58px;font-size:12px;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+nav button b{font-size:22px;font-weight:400}
+nav .on{color:var(--ac);font-weight:700}
+#sheet,#lb{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;z-index:5}
+.sh{width:100%;max-height:92vh;overflow:auto;background:var(--card);border-radius:20px 20px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom))}
+#lb{flex-direction:column;align-items:stretch;justify-content:center;background:rgba(0,0,0,.92);gap:12px;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+#lb img{max-width:100%;max-height:72vh;object-fit:contain;margin:auto}
+.btns{display:flex;gap:10px;margin-top:6px}
+.btns button,.big{flex:1;min-height:50px;border-radius:12px;font-weight:700;border:1px solid var(--ln)}
+.p{background:var(--ac);color:var(--on);border-color:var(--ac)!important}
+.big{display:block;width:100%;margin:10px 0;background:var(--card)}
+.del{color:#c0392b;width:100%;min-height:48px;border:1px solid var(--ln);border-radius:12px;margin:6px 0;font-weight:600}
+.note{background:var(--card);border-left:4px solid var(--tape);border-radius:8px;padding:12px;margin:12px 0}
+.empty{text-align:center;color:var(--mute);padding:48px 12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:9;font-weight:600}
+@media(prefers-reduced-motion:no-preference){.sh{animation:up .2s ease-out}@keyframes up{from{transform:translateY(40px);opacity:0}}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<button class="fab" id="fab" data-a="fab"></button>
+<nav>
+<button data-a="go" data-n="home"><b>🛠</b>В работе</button>
+<button data-a="go" data-n="all"><b>📦</b>Все модели</button>
+<button data-a="go" data-n="bk"><b>💾</b>Копия</button>
+</nav>
+<div id="sheet" hidden></div>
+<div id="lb" hidden></div>
+<div id="toast" hidden></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const uniq=a=>[...new Set(a.filter(Boolean))];
+const val=id=>$('#'+id).value.trim();
+const fmt=d=>new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+const ST=['В запасе','В работе','Покраска','Финиш','Готово','Заморожено'];
+const STAGES=['Мойка и зачистка деталей','Сборка кузова','Подгонка и шпатлёвка','Грунт','Базовый цвет','Лак','Полировка','Салон','Шасси и подвеска','Колёса и шины','Декали','Мелкие детали','Финальная сборка'];
+const METHODS=['Аэрограф','Кисть','Баллон','Другое'];
+let S={models:[],lastBackup:0},view={n:'home'},tmp=null,wl=null,wakeOn=false;
+
+/* ---------- хранилище (IndexedDB) ---------- */
+const idb=new Promise((res,rej)=>{const r=indexedDB.open('masterskaya',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const kv=async(m,k,v)=>{const d=await idb;return new Promise((res,rej)=>{const t=d.transaction('kv',m==='get'?'readonly':'readwrite'),o=t.objectStore('kv'),q=m==='get'?o.get(k):o.put(v,k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})};
+const save=()=>kv('put','state',S).catch(()=>toast('Не удалось сохранить: нет места'));
+const commit=async()=>{await save();render()};
+
+/* ---------- мелочи ---------- */
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2400)}
+const shrink=f=>new Promise(res=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const k=Math.min(1,1000/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.72))};im.onerror=()=>res(null);im.src=u});
+const pick=()=>new Promise(res=>{const i=document.createElement('input');i.type='file';i.accept='image/*';i.onchange=async()=>res(i.files[0]?await shrink(i.files[0]):null);i.click()});
+function sheet(title,body,ok){const s=$('#sheet');s.innerHTML=`<div class="sh"><h2>${title}</h2>${body}<div class="btns"><button data-a="close">Отмена</button><button class="p" id="ok">Сохранить</button></div></div>`;s.hidden=false;$('#ok').onclick=async()=>{if(await ok()!==false)s.hidden=true}}
+const prog=m=>m.stages.length?Math.round(m.stages.filter(s=>s.d).length/m.stages.length*100):0;
+const bar=p=>`<div class="bar"><i style="width:${p}%"></i></div>`;
+const cur=()=>S.models.find(m=>m.id===view.id);
+async function wake(on){try{if(on){wl=await navigator.wakeLock.request('screen')}else{await wl?.release();wl=null}wakeOn=on}catch(e){wakeOn=false;toast('Экран нельзя удерживать на этой версии iOS')}render()}
+document.addEventListener('visibilitychange',()=>{if(wakeOn&&document.visibilityState==='visible')navigator.wakeLock?.request('screen').then(l=>wl=l).catch(()=>{})});
+
+/* ---------- отрисовка ---------- */
+const card=m=>`<div class="card" data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div class="ph">🏎</div>'}<div class="ci"><b>${esc(m.name)}</b><small>${esc([m.brand,m.kit].filter(Boolean).join(', '))}</small><span class="tag">${ST[m.status]}</span>${bar(prog(m))}</div></div>`;
+function render(){
+  const v=view;let h='',fab='';
+  if(v.n==='model'){
+    const m=cur();if(!m){view={n:'home'};return render()}
+    const t=v.tab||'st',tb=(k,l)=>`<button data-a="tab" data-t="${k}" class="${t===k?'on':''}">${l}</button>`;
+    h=`<div class="top"><button class="ib" data-a="back" aria-label="Назад">‹</button><h1>${esc(m.name)}</h1><button class="ib" data-a="edit" aria-label="Изменить">✎</button></div>
+    <div class="hero">${m.cover?`<img src="${m.cover}" alt="">`:'🏎'}</div>
+    <div class="row"><select data-c="status">${ST.map((s,i)=>`<option value="${i}" ${i===m.status?'selected':''}>${s}</option>`).join('')}</select><button class="chip ${wakeOn?'on':''}" data-a="wake">☀ Экран</button></div>
+    <small>Готово ${prog(m)}%</small>${bar(prog(m))}
+    <div class="tabs">${tb('st','Этапы')}${tb('pt','Покраска')}${tb('ph','Фото')}</div>`;
+    if(t==='st'){fab='+ Этап';h+=m.stages.map((s,i)=>`<div class="st ${s.d?'d':''}"><button class="cb" data-a="tog" data-i="${i}">${s.d?'✓':''}</button><span data-a="tog" data-i="${i}">${esc(s.t)}</span><button class="x" data-a="delSt" data-i="${i}" aria-label="Удалить">×</button></div>`).join('')||'<div class="empty">Этапов нет. Добавьте первый.</div>'}
+    if(t==='pt'){fab='+ Запись';h+=m.paints.map(p=>`<div class="pe"><div class="h"><b>${esc(p.part)}</b><small>${fmt(p.date)}</small></div><div>${esc(p.paint)}</div><small>${[p.method,p.layers?p.layers+' сл.':'',p.thinner?'разб. '+p.thinner:''].filter(Boolean).join(', ')}</small>${p.note?`<div style="margin-top:6px">${esc(p.note)}</div>`:''}${p.photo?`<img src="${p.photo}" alt="" data-a="zoom" data-k="p" data-i="${p.id}">`:''}<button class="del" data-a="delPt" data-i="${p.id}">Удалить запись</button></div>`).join('')||'<div class="empty">Записывайте краску, слои и разбавитель, чтобы повторить цвет в следующий раз.</div>'}
+    if(t==='ph'){fab='+ Фото';h+=m.photos.length?`<div class="grid">${m.photos.map(p=>`<img src="${p.img}" alt="" data-a="zoom" data-k="f" data-i="${p.id}">`).join('')}</div>`:'<div class="empty">Фотографий пока нет. Снимайте модель на каждом этапе.</div>'}
+  }else if(v.n==='all'){
+    fab='+ Модель';const f=v.f??'a',l=S.models.filter(m=>f==='a'||m.status===+f);
+    h=`<h1>Все модели</h1><small>${S.models.length} в коллекции</small><div class="chips"><button class="chip ${f==='a'?'on':''}" data-a="flt" data-s="a">Все</button>${ST.map((s,i)=>`<button class="chip ${f==i?'on':''}" data-a="flt" data-s="${i}">${s}</button>`).join('')}</div>`+(l.map(card).join('')||'<div class="empty">Здесь пусто.</div>');
+  }else if(v.n==='bk'){
+    const d=S.lastBackup?fmt(S.lastBackup):'ещё не делалась';
+    h=`<h1>Резервная копия</h1><small>Моделей: ${S.models.length}. Последняя копия: ${d}.</small>
+    <div class="note">Все записи хранятся только в этом телефоне. Сохраняйте копию в «Файлы» (iCloud Drive) или отправляйте себе в мессенджер.</div>
+    <button class="big p" data-a="exp">Сохранить копию</button><button class="big" data-a="imp">Восстановить из файла</button>`;
+  }else{
+    fab='+ Модель';const l=S.models.filter(m=>[1,2,3].includes(m.status)),old=S.models.length&&Date.now()-S.lastBackup>30*864e5;
+    h=`<h1>В работе</h1><small>${l.length} на столе, ${S.models.filter(m=>m.status===4).length} готово</small>`+
+    (old?`<div class="note" data-a="go" data-n="bk"><b>Сделайте резервную копию</b><br><small>${S.lastBackup?'Прошло больше месяца.':'Копия ещё ни разу не сохранялась.'}</small></div>`:'')+
+    (l.map(card).join('')||`<div class="empty">На столе пусто.<br>Нажмите «+ Модель», чтобы начать проект.</div>`);
+  }
+  $('#app').innerHTML=h;$('#fab').hidden=!fab;$('#fab').textContent=fab;
+  const nb=v.n==='model'?v.back:v.n;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.n===nb));
+}
+
+/* ---------- формы ---------- */
+function modelSheet(m){
+  const e=!!m;
+  sheet(e?'Модель':'Новая модель',`<label>Название</label><input id="f1" value="${esc(m?.name)}" placeholder="Например, Porsche 911 GT3">
+  <label>Производитель</label><input id="f2" list="dl_b" value="${esc(m?.brand)}"><datalist id="dl_b">${uniq(S.models.map(x=>x.brand)).map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+  <label>Номер набора</label><input id="f3" value="${esc(m?.kit)}">
+  <label>Статус</label><select id="f4">${ST.map((s,i)=>`<option value="${i}" ${i===(m?m.status:1)?'selected':''}>${s}</option>`).join('')}</select>${e?'<button class="del" data-a="delModel">Удалить модель</button>':''}`,
+  ()=>{const n=val('f1');if(!n){toast('Введите название');return false}
+    if(e)Object.assign(m,{name:n,brand:val('f2'),kit:val('f3'),status:+val('f4')});
+    else S.models.unshift({id:uid(),name:n,brand:val('f2'),kit:val('f3'),status:+val('f4'),created:Date.now(),cover:'',stages:STAGES.map(t=>({t,d:0})),paints:[],photos:[]});
+    return commit()});
+}
+function paintSheet(m){
+  tmp=null;
+  sheet('Запись о покраске',`<label>Деталь</label><input id="p1" placeholder="Кузов, салон, диски…">
+  <label>Краска (марка и номер)</label><input id="p2" list="dl_p" placeholder="Например, Tamiya TS-26"><datalist id="dl_p">${uniq(S.models.flatMap(x=>x.paints.map(p=>p.paint))).map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
+  <label>Как наносили</label><select id="p3">${METHODS.map(x=>`<option>${x}</option>`).join('')}</select>
+  <div class="two"><div><label>Слоёв</label><input id="p4" type="number" inputmode="numeric" min="1" value="2"></div><div><label>Разбавитель</label><input id="p5" placeholder="например, 60/40"></div></div>
+  <label>Заметка</label><textarea id="p6" rows="3"></textarea><button class="big" data-a="pickTmp">📷 Добавить фото</button><img id="pv" hidden style="width:100%;border-radius:8px;margin-bottom:8px" alt="">`,
+  ()=>{if(!val('p1')&&!val('p2')){toast('Укажите деталь или краску');return false}
+    m.paints.unshift({id:uid(),date:Date.now(),part:val('p1')||'Без названия',paint:val('p2'),method:val('p3'),layers:val('p4'),thinner:val('p5'),note:val('p6'),photo:tmp||''});
+    return commit()});
+}
+
+/* ---------- действия ---------- */
+const act={
+  go:d=>{view={n:d.n};render();scrollTo(0,0)},
+  open:d=>{view={n:'model',id:d.id,tab:'st',back:view.n};render();scrollTo(0,0)},
+  back:()=>act.go({n:view.back||'home'}),
+  tab:d=>{view.tab=d.t;render()},
+  flt:d=>{view.f=d.s;render()},
+  close:()=>{$('#sheet').hidden=true;$('#lb').hidden=true},
+  fab:()=>{const m=cur(),t=view.tab;
+    if(view.n!=='model')return modelSheet();
+    if(t==='st')sheet('Новый этап','<label>Название</label><input id="s1" placeholder="Например, Тонировка стёкол">',()=>{if(!val('s1'))return false;m.stages.push({t:val('s1'),d:0});return commit()});
+    if(t==='pt')paintSheet(m);
+    if(t==='ph')act.addPhoto()},
+  edit:()=>modelSheet(cur()),
+  wake:()=>wake(!wakeOn),
+  tog:d=>{const s=cur().stages[+d.i];s.d=s.d?0:1;commit()},
+  delSt:d=>{const m=cur();if(confirm('Удалить этап «'+m.stages[+d.i].t+'»?')){m.stages.splice(+d.i,1);commit()}},
+  delPt:d=>{if(confirm('Удалить запись?')){const m=cur();m.paints=m.paints.filter(p=>p.id!==d.i);commit()}},
+  delModel:()=>{const m=cur();if(confirm('Удалить модель «'+m.name+'» со всеми записями и фото?')){S.models=S.models.filter(x=>x!==m);act.close();view={n:'all'};commit()}},
+  pickTmp:async()=>{const r=await pick();if(r){tmp=r;const i=$('#pv');i.src=r;i.hidden=false}},
+  addPhoto:async()=>{const r=await pick();if(!r)return;const m=cur();m.photos.unshift({id:uid(),img:r,date:Date.now()});if(!m.cover)m.cover=r;commit()},
+  zoom:d=>{const m=cur(),src=d.k==='p'?m.paints.find(p=>p.id===d.i)?.photo:m.photos.find(p=>p.id===d.i)?.img;if(!src)return;
+    $('#lb').innerHTML=`<img src="${src}" alt="">${d.k==='f'?`<div class="btns"><button class="p" data-a="cover" data-i="${d.i}">Сделать обложкой</button><button class="del" data-a="delPh" data-i="${d.i}">Удалить</button></div>`:''}<div class="btns"><button style="color:#fff" data-a="close">Закрыть</button></div>`;$('#lb').hidden=false},
+  cover:d=>{const m=cur();m.cover=m.photos.find(p=>p.id===d.i).img;act.close();commit()},
+  delPh:d=>{if(confirm('Удалить фото?')){const m=cur();m.photos=m.photos.filter(p=>p.id!==d.i);act.close();commit()}},
+  exp:async()=>{const f=new File([JSON.stringify(S)],'masterskaya-'+new Date().toISOString().slice(0,10)+'.json',{type:'application/json'});
+    try{if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f]});else{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}
+      S.lastBackup=Date.now();await commit();toast('Копия сохранена')}catch(e){if(e.name!=='AbortError')toast('Не удалось сохранить копию')}},
+  imp:()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const d=JSON.parse(await i.files[0].text());if(!Array.isArray(d.models))throw 0;
+    if(!confirm('Заменить текущие данные ('+S.models.length+' моделей) данными из файла ('+d.models.length+' моделей)?'))return;S=d;S.lastBackup??=0;view={n:'home'};await commit();toast('Данные восстановлены')}catch(e){toast('Это не файл копии «Мастерской»')}};i.click()}
+};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(a)act[a.dataset.a]?.(a.dataset)});
+document.addEventListener('change',e=>{if(e.target.dataset.c==='status'){cur().status=+e.target.value;commit()}});
+
+/* ---------- запуск ---------- */
+(async()=>{
+  try{S=(await kv('get','state'))||S}catch(e){}
+  navigator.storage?.persist?.();
+  render();
+  if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
