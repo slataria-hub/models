@@ -116,6 +116,13 @@ const askP=(msg,label='Удалить')=>new Promise(res=>{const e=$('#sheet');e
 const ask=(msg,fn,label)=>askP(msg,label).then(y=>y&&fn());
 const askIn=(title,label,v='',mode='text')=>new Promise(res=>{const e=$('#sheet');e.innerHTML=`<div class="sh"><h2>${title}</h2><label>${label}</label><input id="ai" ${mode==='dec'?'type="text" inputmode="decimal"':''} value="${esc(v)}"><div class="btns"><button id="an">Отмена</button><button class="p" id="ay">Готово</button></div></div>`;e.hidden=false;setTimeout(()=>$('#ai').focus(),60);$('#an').onclick=()=>{e.hidden=true;res(null)};$('#ay').onclick=()=>{e.hidden=true;res($('#ai').value.trim())}});
 const offerBuy=x=>{if(S.shop.some(s=>s.sk===x.id&&!s.d))return;ask('«'+dn(x)+'» закончилась. Добавить в покупки?',()=>{S.shop.push({id:uid(),t:dn(x),sk:x.id,d:0});save();toast('Добавлено в покупки')},'Добавить')};
+const need=(x,mm)=>S.shop.filter(s=>s.sk===x.id&&!s.d&&(!mm||s.mid===mm));
+const nf=x=>{const n=need(x);if(!n.length)return '';const nm=uniq(n.map(s=>S.models.find(m=>m.id===s.mid)?.name));return `<small><b>🛒 В покупках${nm.length?': '+nm.map(esc).join(', '):''}</b></small>`};
+const setCover=(m,r)=>{m.photos.unshift({id:uid(),img:r,cap:'Обложка',date:Date.now()});m.cover=r};
+async function webPhoto(q){try{const u='https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch='+encodeURIComponent(q)+'&prop=imageinfo&iiprop=url|mime&iiurlwidth=900&format=json&origin=*';
+  const d=await(await fetch(u)).json();const i=Object.values(d.query?.pages||{}).sort((a,b)=>a.index-b.index).map(x=>x.imageinfo?.[0]).find(x=>x&&x.mime==='image/jpeg'&&x.thumburl);
+  if(!i)return null;return await shrink(await(await fetch(i.thumburl)).blob())}catch(e){return null}}
+function offerPhoto(){const m=pend;if(!m)return;const e=$('#sheet');e.innerHTML=`<div class="sh"><h2>Фото модели</h2><p class="mute" style="margin-top:0">Добавьте обложку для «${esc(m.name)}». Она будет видна в списках и на полке.</p><button class="big p" data-a="ownCover">📷 Снять или выбрать фото</button><button class="big" data-a="webCover">🔎 Найти в интернете</button><div class="btns"><button data-a="close">Позже</button></div></div>`;e.hidden=false}
 const searchList=()=>{const q=(view.q||'').trim().toLowerCase();if(q.length<2)return '<div class="empty">Введите хотя бы 2 буквы. Ищем по заметкам, дневнику покраски и подписям к фото.</div>';
   const r=[];S.models.forEach(m=>{(m.notes||[]).forEach(x=>{if(x.t.toLowerCase().includes(q))r.push(['Заметка',m,'in',x.t,x.date])});
     m.paints.forEach(p=>{const t=[p.part,p.paint,p.method,p.thinner,p.note].filter(Boolean).join(', ');if(t.toLowerCase().includes(q))r.push(['Покраска',m,'pt',t,p.date])});
@@ -133,7 +140,7 @@ async function stopT(){if(!S.timer)return;const m=S.models.find(x=>x.id===S.time
 const seg=k=>`<div class="tabs" style="margin-top:14px">${[['c','Коллекция'],['tr','Полка'],['ss','Итоги'],['q','Поиск']].map(([a,b])=>`<button data-a="sub" data-k="${a}" class="${k===a?'on':''}">${b}</button>`).join('')}</div>`;
 const trophy=m=>`<div data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div style="aspect-ratio:1;border-radius:10px;background:var(--card);border:1px solid var(--ln);display:grid;place-items:center;font-size:40px">🏆</div>'}<b style="display:block;margin-top:6px">${esc(m.name)}</b><small>${fmt(m.done||m.created)}${tot(m)>60?', '+hm(tot(m)):''}</small></div>`;
 const tbanner=()=>{const m=S.models.find(x=>x.id===S.timer.mid);return m?`<div class="note" data-a="open" data-id="${m.id}"><b>⏱ Идёт работа</b><br><small>${esc(m.name)}, <span data-tm="${m.id}">${hm(tot(m))}</span></small></div>`:''};
-let S={models:[],stock:[],shop:[],lastBackup:0},view={n:'home'},tmp=null,wl=null,wakeOn=false;
+let S={models:[],stock:[],shop:[],lastBackup:0},view={n:'home'},tmp=null,pend=null,wl=null,wakeOn=false;
 
 /* ---------- хранилище (IndexedDB) ---------- */
 const idb=new Promise((res,rej)=>{const r=indexedDB.open('masterskaya',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -153,8 +160,10 @@ async function wake(on){try{if(on){wl=await navigator.wakeLock.request('screen')
 document.addEventListener('visibilitychange',()=>{if(wakeOn&&document.visibilityState==='visible')navigator.wakeLock?.request('screen').then(l=>wl=l).catch(()=>{})});
 
 /* ---------- отрисовка ---------- */
-const sItem=x=>`<div class="st sk"><div class="ci" data-a="editSk" data-i="${x.id}" style="padding:8px 0"><b>${esc(x.name||x.code)}</b><small>${esc([x.brand,x.name?x.code:'',x.type].filter(Boolean).join(', '))}</small></div><button class="chip lv${x.level}" data-a="lv" data-i="${x.id}">${LV[x.level]}</button><button class="x" data-a="toBuy" data-i="${x.id}" aria-label="В покупки">🛒</button></div>`;
-const stockList=()=>{const f=view.f??'a',q=(view.q||'').toLowerCase(),l=S.stock.filter(x=>(f==='a'||x.type===f)&&(!q||dn(x).toLowerCase().includes(q)));return l.map(sItem).join('')||'<div class="empty">Ничего не найдено. Добавьте краску кнопкой «+ Краска».</div>'};
+const sItem=x=>`<div class="st sk"><div class="ci" data-a="editSk" data-i="${x.id}" style="padding:8px 0"><b>${esc(x.name||x.code)}</b><small>${esc([x.brand,x.name?x.code:'',x.type].filter(Boolean).join(', '))}</small>${nf(x)}</div><button class="chip lv${x.level}" data-a="lv" data-i="${x.id}">${LV[x.level]}</button><button class="x" data-a="toBuy" data-i="${x.id}" aria-label="В покупки">🛒</button></div>`;
+const stockList=()=>{const f=view.f??'a',q=(view.q||'').toLowerCase(),lv=view.lv||'a',mm=view.mm||'',
+  l=S.stock.filter(x=>(f==='a'||x.type===f)&&(!q||dn(x).toLowerCase().includes(q))&&(lv!=='low'||x.level>=2)&&(mm?need(x,mm):lv==='buy'?need(x):[1]).length>0);
+  return l.map(sItem).join('')||'<div class="empty">Ничего не найдено. Измените фильтры или добавьте краску кнопкой «+ Краска».</div>'};
 const shItem=x=>{const mn=S.models.find(m=>m.id===x.mid)?.name;return `<div class="st ${x.d?'d':''}"><button class="cb" data-a="togSh" data-i="${x.id}">${x.d?'✓':''}</button><span data-a="togSh" data-i="${x.id}">${esc(x.t)}${mn?`<br><small>для ${esc(mn)}</small>`:''}</span><button class="x" data-a="delSh" data-i="${x.id}" aria-label="Удалить">×</button></div>`};
 const card=m=>`<div class="card" data-a="open" data-id="${m.id}">${m.cover?`<img src="${m.cover}" alt="">`:'<div class="ph">🏎</div>'}<div class="ci"><b>${esc(m.name)}</b><small>${esc([m.brand,m.kit].filter(Boolean).join(', '))}</small><span class="tag">${ST[m.status]}</span>${bar(prog(m))}${tot(m)>60||costOf(m)?`<small>${[tot(m)>60?'⏱ '+hm(tot(m)):'',costOf(m)?mo(costOf(m)):''].filter(Boolean).join(', ')}</small>`:''}</div></div>`;
 function render(){
@@ -207,7 +216,7 @@ function render(){
     fab='+ Краска';const f=v.f??'a';
     h=`<h1>Краски и материалы</h1><small>${S.stock.length} позиций, на исходе: ${S.stock.filter(x=>x.level>=2).length}</small>
     <input id="q" type="search" placeholder="Поиск по названию или номеру" value="${esc(v.q)}" style="margin:12px 0 0">
-    <div class="chips"><button class="chip ${f==='a'?'on':''}" data-a="flt" data-s="a">Все</button>${TYPES.map(t=>`<button class="chip ${f===t?'on':''}" data-a="flt" data-s="${t}">${t}</button>`).join('')}</div><div id="sl">${stockList()}</div>`;
+    <div class="chips"><button class="chip ${f==='a'?'on':''}" data-a="flt" data-s="a">Все</button>${TYPES.map(t=>`<button class="chip ${f===t?'on':''}" data-a="flt" data-s="${t}">${t}</button>`).join('')}</div><div class="chips" style="padding-top:2px">${[['a','Любой остаток'],['low','На исходе'],['buy','Нужно купить']].map(([k,t])=>`<button class="chip ${(v.lv||'a')===k?'on':''}" data-a="flv" data-s="${k}">${t}</button>`).join('')}</div><select data-c="mm" style="margin:6px 0 0"><option value="">Нужно для любой модели</option>${S.models.map(m=>`<option value="${m.id}" ${v.mm===m.id?'selected':''}>Нужно для: ${esc(m.name)}</option>`).join('')}</select><div id="sl">${stockList()}</div>`;
   }else if(v.n==='shop'){
     fab='+ Покупка';const o=S.shop.filter(x=>!x.d),dn2=S.shop.filter(x=>x.d);
     h=`<h1>Покупки</h1><small>Нужно купить: ${o.length}</small>`+(o.concat(dn2).map(shItem).join('')||'<div class="empty">Список пуст. Добавляйте сюда нужное или нажимайте 🛒 у краски на складе.</div>')+(dn2.length?`<button class="big" data-a="clrShop">Убрать купленное (${dn2.length})</button>`:'');
@@ -239,7 +248,7 @@ function modelSheet(m){
   <label>Статус</label><select id="f4">${ST.map((s,i)=>`<option value="${i}" ${i===(m?m.status:1)?'selected':''}>${s}</option>`).join('')}</select>${e?'<button class="del" data-a="delModel">Удалить модель</button>':''}`,
   ()=>{const n=val('f1');if(!n){toast('Введите название');return false}
     if(e)(Object.assign(m,{name:n,brand:val('f2'),kit:val('f3'),price:num('f5'),real:val('f6')}),setSt(m,+val('f4')));
-    else S.models.unshift({id:uid(),name:n,brand:val('f2'),kit:val('f3'),status:+val('f4'),price:num('f5'),real:val('f6'),sec:0,exp:[],done:+val('f4')===4?Date.now():0,created:Date.now(),cover:'',stages:STAGES.map(t=>({t,d:0})),paints:[],photos:[]});
+    else S.models.unshift(pend={id:uid(),name:n,brand:val('f2'),kit:val('f3'),status:+val('f4'),price:num('f5'),real:val('f6'),sec:0,exp:[],done:+val('f4')===4?Date.now():0,created:Date.now(),cover:'',stages:STAGES.map(t=>({t,d:0})),paints:[],photos:[]});if(!e)setTimeout(offerPhoto,600);
     return commit()});
 }
 function paintSheet(m){
@@ -301,7 +310,10 @@ const act={
     if(t==='pt')paintSheet(m);
     if(t==='ph')act.addPhoto();if(t==='ex')expSheet(m)},
   lv:d=>{const x=S.stock.find(y=>y.id===d.i);x.level=(x.level+1)%4;commit();if(x.level===3)offerBuy(x)},
-  toBuy:d=>{const x=S.stock.find(y=>y.id===d.i);if(S.shop.some(s=>s.sk===x.id&&!s.d))return toast('Уже в списке покупок');S.shop.push({id:uid(),t:dn(x),sk:x.id,d:0});save();toast('Добавлено в покупки')},
+  flv:d=>{view.lv=d.s;render()},
+  toBuy:d=>{const x=S.stock.find(y=>y.id===d.i);
+    sheet('В покупки: '+esc(dn(x)),`<label>Для какой модели</label><select id="b2"><option value="">Без привязки</option>${S.models.map(m=>`<option value="${m.id}" ${m.id===view.mm?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`,
+    ()=>{const mid=val('b2');if(need(x).some(s=>(s.mid||'')===mid)){toast('Уже в списке покупок');return false}S.shop.push({id:uid(),t:dn(x),sk:x.id,mid,d:0});toast('Добавлено в покупки');return commit()})},
   editSk:d=>skSheet(S.stock.find(y=>y.id===d.i)),
   delSk:d=>{ask('Удалить позицию со склада?',()=>{S.stock=S.stock.filter(y=>y.id!==d.i);act.close();commit()})},
   togSh:async d=>{const s=S.shop.find(y=>y.id===d.i);s.d=s.d?0:1;if(s.d&&s.sk){const x=S.stock.find(y=>y.id===s.sk);if(x)x.level=0}
@@ -310,6 +322,10 @@ const act={
   delSh:d=>{S.shop=S.shop.filter(y=>y.id!==d.i);commit()},
   clrShop:()=>{ask('Убрать купленное из списка?',()=>{S.shop=S.shop.filter(s=>!s.d);commit()},'Убрать')},
   sub:d=>{view.sub=d.k;view.f=undefined;render()},
+  ownCover:async()=>{const r=await pick();if(r){setCover(pend,r);act.close();commit()}},
+  webCover:async()=>{toast('Ищу фото…');const r=await webPhoto(pend.name);if(!r)return toast('Подходящего фото не нашлось. Добавьте своё.');tmp=r;
+    $('#sheet').innerHTML=`<div class="sh"><h2>Нашлось такое фото</h2><img src="${r}" style="width:100%;border-radius:12px;margin-bottom:8px" alt=""><small>Это общая картинка из Wikimedia Commons, не обязательно ваш набор.</small><div class="btns" style="margin-top:12px"><button data-a="close">Не надо</button><button class="p" data-a="useWeb">Использовать</button></div></div>`},
+  useWeb:()=>{setCover(pend,tmp);act.close();commit()},
   logs:()=>logSheet(cur()),
   editLg:async d=>{const m=cur(),x=d.i==='base'?{get s(){return m.sec},set s(v){m.sec=v}}:m.log.find(y=>y.id===d.i);
     const t=await askIn('Время работы','Сколько минут?',Math.round(x.s/60),'dec');if(t===null)return logSheet(m);const n=Math.round(parseFloat(t.replace(',','.'))*60);if(!(n>0))return(toast('Введите число минут'),logSheet(m));x.s=n;save().then(()=>{render();logSheet(m)})},
@@ -345,7 +361,7 @@ const act={
     if(!await askP('Заменить текущие данные ('+S.models.length+' моделей) данными из файла ('+d.models.length+' моделей)?','Заменить'))return;S=d;S.lastBackup??=0;S.stock??=[];S.shop??=[];view={n:'home'};await commit();toast('Данные восстановлены')}catch(e){toast('Это не файл копии «Мастерской»')}};i.click()}
 };
 document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(a)act[a.dataset.a]?.(a.dataset)});
-document.addEventListener('change',e=>{if(e.target.dataset.c==='status'){setSt(cur(),+e.target.value);commit()}if(e.target.dataset.c==='sort'){view.sort=e.target.value;render()}if(e.target.id==='cu'){S.cur=e.target.value.trim()||'€';save()}});
+document.addEventListener('change',e=>{if(e.target.dataset.c==='status'){setSt(cur(),+e.target.value);commit()}if(e.target.dataset.c==='mm'){view.mm=e.target.value;render()}if(e.target.dataset.c==='sort'){view.sort=e.target.value;render()}if(e.target.id==='cu'){S.cur=e.target.value.trim()||'€';save()}});
 
 document.addEventListener('input',e=>{if(e.target.id==='q'){view.q=e.target.value;$('#sl').innerHTML=(view.n==='stock'?stockList:searchList)()}});
 
